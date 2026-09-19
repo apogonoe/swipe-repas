@@ -66,8 +66,11 @@ des clients, et `V` dans `sw.js` pour la coquille.
   `steps` corrompu ; les étapes viennent d'un second jeu de données qui ne
   couvre qu'une partie du catalogue. Les ingrédients et quantités, eux, sont
   complets partout. Voir le README de `MARMITE` pour la marche à suivre.
-- **Les recettes sont en anglais.** La traduction française est prévue mais
-  n'est pas encore passée.
+- **Les ingrédients sont en français** (2 897 sur 2 897) : recherche, placard,
+  liste de courses et détail des prix. **Les titres de recettes restent en
+  anglais** — testés, `opus-mt-en-fr` et NLLB-600M donnent des contresens
+  (« Blueberry Scones » → « Écossais de bleuets »), et mieux vaut l'anglais
+  qu'un contresens. Voir le README de `MARMITE`.
 - **Les prix sont des ordres de grandeur** pour un supermarché belge, pas des
   relevés. Corrigeables dans Réglages ; tes corrections sont gardées en local.
 - Les photos viennent du CDN de Food.com et demandent donc le réseau. Un pack

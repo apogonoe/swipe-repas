@@ -62,6 +62,8 @@ main{flex:1;position:relative;overflow:hidden}
 }
 .carte .photo{position:relative;flex:1;min-height:0;background:var(--fond2)}
 .carte .photo img{width:100%;height:100%;object-fit:cover;display:block}
+.sansphoto{position:absolute;inset:0;display:grid;place-items:center;
+  background:linear-gradient(145deg,var(--t1),var(--t2));font-size:76px;line-height:1}
 .carte .photo::after{content:"";position:absolute;inset:0;
   background:linear-gradient(180deg,transparent 45%,rgba(0,0,0,.82))}
 .carte .sur{position:absolute;left:0;right:0;bottom:0;padding:14px;z-index:1;color:#fff}
@@ -262,8 +264,8 @@ input[type=range]{padding:0;background:none;border:none;accent-color:var(--accen
 
 <!-- ============ FICHE RECETTE ============ -->
 <div id="fiche">
-  <div class="haut">
-    <img id="fiche-img" alt="">
+  <div class="haut" id="fiche-haut">
+    <img id="fiche-img" alt="" onerror="this.style.display='none'">
     <button class="fermer" onclick="fermerFiche()" aria-label="Fermer">✕</button>
   </div>
   <div class="corps">
@@ -290,7 +292,7 @@ input[type=range]{padding:0;background:none;border:none;accent-color:var(--accen
 const $ = id => document.getElementById(id);
 
 /* ---------------- chargement (cache-first : utilisable hors-ligne) ---------------- */
-const DATA_CACHE = 'mm-data-v1';
+const DATA_CACHE = 'mm-data-v2';
 const DATA_FILES = ['recipes.json','ingredients.json','graph_meta.json','graph.bin'];
 const enVol = new Map();   // ne jamais télécharger deux fois le même fichier en parallèle
 
@@ -621,6 +623,35 @@ let file = [];          // indices de recettes à proposer
 let cartes = [];        // éléments DOM, la dernière est celle du dessus
 
 function urlPhoto(r){ return r.im ? CAT.prefixe_img + r.im : ''; }
+
+/* Environ 2 % des photos du CDN sont mortes. Plutôt qu'une carte vide, on
+   dessine un fond teinté par la catégorie du plat, avec un pictogramme. */
+const PICTOS = [
+  [/dessert|cake|cookie|pie|sweet|candy|frozen|pudding|bar|brownie|marshmallow|chocolate|tart|crumble|ice cream|fudge/i, '🍰', '#f0a5c0', '#c77ea0'],
+  [/bread|scone|muffin|biscuit|bagel|yeast/i,             '🍞', '#e8bb7a', '#c2914c'],
+  [/beverage|drink|smoothie|shake|punch|cocktail/i,       '🥤', '#8fc9e8', '#5e9dc4'],
+  [/soup|stew|chowder|broth|chili/i,                      '🍲', '#e3a06a', '#bd7643'],
+  [/salad|vegetable|greens/i,                             '🥗', '#9ed48a', '#6faa5b'],
+  [/chicken|poultry|turkey|duck/i,                        '🍗', '#e6b06a', '#bf8641'],
+  [/beef|pork|lamb|meat|steak/i,                          '🥩', '#dd8f8f', '#b56464'],
+  [/fish|seafood|salmon|tuna|shrimp|crab/i,               '🐟', '#8cc6d6', '#5c9bad'],
+  [/pasta|spaghetti|noodle|rice|grain/i,                  '🍝', '#e8c98a', '#c2a05c'],
+  [/sauce|dressing|condiment|spread|dip/i,                '🥣', '#cbb79a', '#a38c6c'],
+  [/breakfast|egg|pancake|waffle/i,                       '🍳', '#f0cf8a', '#c9a75c'],
+  [/cheese|dairy/i,                                       '🧀', '#efd07a', '#c7a44b'],
+];
+function decor(r){
+  const c = (CAT.categories[r.g] || '') + ' ' + r.t;
+  for(const [re, emo, t1, t2] of PICTOS) if(re.test(c)) return {emo, t1, t2};
+  return {emo:'🍽️', t1:'#c9b8a8', t2:'#9c8a79'};
+}
+function blocPhoto(r){
+  const d = decor(r);
+  const repli = `<div class="sansphoto" style="--t1:${d.t1};--t2:${d.t2}">${d.emo}</div>`;
+  if(!r.im) return repli;
+  return `${repli}<img loading="lazy" alt="" src="${urlPhoto(r)}"
+     style="position:absolute;inset:0" onerror="this.remove()">`;
+}
 function eurs(c){ return (c/100).toFixed(2).replace('.', ',') + ' €'; }
 function duree(m){ return m >= 60 ? Math.floor(m/60)+' h'+(m%60 ? String(m%60).padStart(2,'0') : '') : m+' min'; }
 
@@ -643,8 +674,7 @@ function faireCarte(i){
   el.innerHTML = `
     <div class="verdict oui">MIAM</div>
     <div class="verdict non">NON</div>
-    <div class="photo"><img loading="lazy" alt="" src="${urlPhoto(r)}"
-         onerror="this.style.display='none'"></div>
+    <div class="photo">${blocPhoto(r)}</div>
     <div class="sur">
       <h2>${echapper(r.t)}</h2>
       <div class="pastilles">${pastillesDe(r)}</div>
@@ -707,9 +737,19 @@ function gestes(el){
   el.addEventListener('touchstart', debut, {passive:true});
   el.addEventListener('touchmove',  bouge, {passive:false});
   el.addEventListener('touchend',   fin);
-  el.addEventListener('mousedown',  debut);
-  window.addEventListener('mousemove', bouge);
-  window.addEventListener('mouseup',   fin);
+  /* À la souris, on n'écoute la fenêtre QUE pendant le glissé : sinon chaque
+     carte créée laisserait derrière elle deux écouteurs jamais retirés. */
+  el.addEventListener('mousedown', e => {
+    debut(e);
+    if(!actif) return;
+    const finSouris = ev => {
+      fin(ev);
+      window.removeEventListener('mousemove', bouge);
+      window.removeEventListener('mouseup', finSouris);
+    };
+    window.addEventListener('mousemove', bouge);
+    window.addEventListener('mouseup', finSouris);
+  });
 }
 
 function envoyer(el, sens){
@@ -759,6 +799,9 @@ function ouvrirFiche(idx){
   if(i == null) return;
   const r = REC[i]; ficheCourante = i;
 
+  const d = decor(r);
+  $('fiche-haut').style.background = `linear-gradient(145deg,${d.t1},${d.t2})`;
+  $('fiche-img').style.display = '';
   $('fiche-img').src = urlPhoto(r);
   $('fiche-titre').textContent = r.t;
   $('fiche-pastilles').innerHTML = pastillesDe(r);
