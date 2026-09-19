@@ -1,0 +1,1008 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#17120f">
+<title>MarmiteMatch</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png">
+<style>
+:root{
+  --fond:#17120f; --fond2:#211a16; --carte:#2b2320; --bord:#3a302b;
+  --texte:#f4ece6; --doux:#b3a49a; --accent:#ff8a3d; --accent2:#ffb56b;
+  --oui:#4ade80; --non:#f87171; --ombre:0 10px 34px rgba(0,0,0,.45);
+  --r:18px;
+}
+@media (prefers-color-scheme: light){
+  :root:not([data-theme="dark"]){
+    --fond:#fdf8f4; --fond2:#f5ece4; --carte:#fff; --bord:#e7dbd0;
+    --texte:#241a14; --doux:#7a6a5e; --ombre:0 10px 30px rgba(120,80,40,.13);
+  }
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;overscroll-behavior:none}
+body{
+  background:var(--fond); color:var(--texte);
+  font:16px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  display:flex; flex-direction:column;
+  padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom);
+}
+button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+
+/* ---------- ecran de chargement ---------- */
+#splash{position:fixed;inset:0;background:var(--fond);z-index:99;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;padding:24px}
+#splash h1{margin:0;font-size:30px;letter-spacing:-.5px}
+#splash h1 span{color:var(--accent)}
+#splashbar{width:min(320px,80vw);height:6px;background:var(--bord);border-radius:99px;overflow:hidden}
+#splashbar div{height:100%;width:0;background:linear-gradient(90deg,var(--accent),var(--accent2));transition:width .3s}
+#status{color:var(--doux);font-size:14px;min-height:20px;text-align:center}
+
+/* ---------- en-tete ---------- */
+header{display:flex;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid var(--bord)}
+header .logo{font-weight:700;letter-spacing:-.3px}
+header .logo span{color:var(--accent)}
+.onglets{margin-left:auto;display:flex;gap:4px;background:var(--fond2);padding:3px;border-radius:99px}
+.onglets button{padding:7px 13px;border-radius:99px;font-size:13px;color:var(--doux)}
+.onglets button[aria-selected="true"]{background:var(--carte);color:var(--texte);box-shadow:0 1px 4px rgba(0,0,0,.2)}
+
+main{flex:1;position:relative;overflow:hidden}
+.vue{position:absolute;inset:0;overflow-y:auto;overscroll-behavior:contain;display:none}
+.vue[data-actif]{display:block}
+
+/* ---------- pile de cartes ---------- */
+#pile{position:absolute;inset:0;display:grid;place-items:center;padding:12px 12px 96px}
+.carte{
+  position:absolute;width:min(380px,92vw);height:min(560px,calc(100% - 12px));
+  background:var(--carte);border:1px solid var(--bord);border-radius:var(--r);
+  box-shadow:var(--ombre);overflow:hidden;display:flex;flex-direction:column;
+  will-change:transform;touch-action:pan-y;
+}
+.carte .photo{position:relative;flex:1;min-height:0;background:var(--fond2)}
+.carte .photo img{width:100%;height:100%;object-fit:cover;display:block}
+.carte .photo::after{content:"";position:absolute;inset:0;
+  background:linear-gradient(180deg,transparent 45%,rgba(0,0,0,.82))}
+.carte .sur{position:absolute;left:0;right:0;bottom:0;padding:14px;z-index:1;color:#fff}
+.carte h2{margin:0 0 8px;font-size:20px;line-height:1.25;text-shadow:0 2px 10px rgba(0,0,0,.6)}
+.pastilles{display:flex;flex-wrap:wrap;gap:6px}
+.pastille{display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:600;
+  padding:4px 9px;border-radius:99px;background:rgba(255,255,255,.16);backdrop-filter:blur(8px);color:#fff}
+.pastille.ok{background:rgba(74,222,128,.28)}
+.pastille.moyen{background:rgba(255,180,80,.3)}
+.pastille.prix{background:rgba(255,138,61,.32)}
+.verdict{position:absolute;top:22px;font-size:26px;font-weight:800;letter-spacing:1px;
+  padding:8px 16px;border:3px solid;border-radius:12px;opacity:0;transform:rotate(-8deg);z-index:2}
+.verdict.oui{left:18px;color:var(--oui);border-color:var(--oui)}
+.verdict.non{right:18px;color:var(--non);border-color:var(--non);transform:rotate(8deg)}
+
+.actions{position:absolute;bottom:18px;left:0;right:0;display:flex;justify-content:center;gap:14px;z-index:3}
+.actions button{width:58px;height:58px;border-radius:50%;background:var(--carte);
+  border:1px solid var(--bord);box-shadow:var(--ombre);display:grid;place-items:center;font-size:22px}
+.actions button.gros{width:68px;height:68px;font-size:26px}
+.actions .j{color:var(--non)} .actions .a{color:var(--oui)} .actions .i{color:var(--accent2)}
+
+/* ---------- panneaux ---------- */
+.bloc{margin:12px;padding:14px;background:var(--carte);border:1px solid var(--bord);border-radius:var(--r)}
+.bloc h3{margin:0 0 10px;font-size:15px;display:flex;align-items:center;gap:8px}
+.bloc h3 .cpt{margin-left:auto;font-size:12px;color:var(--doux);font-weight:400}
+label.champ{display:block;margin:10px 0 4px;font-size:13px;color:var(--doux)}
+input,select{width:100%;padding:10px 12px;border-radius:12px;border:1px solid var(--bord);
+  background:var(--fond2);color:var(--texte);font:inherit}
+input[type=range]{padding:0;background:none;border:none;accent-color:var(--accent);height:22px}
+.rangee{display:flex;gap:8px;align-items:center}
+.rangee input{flex:1}
+.bouton{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:10px 16px;
+  border-radius:12px;background:var(--accent);color:#231208;font-weight:600}
+.bouton.fant{background:var(--fond2);color:var(--texte);border:1px solid var(--bord)}
+.liste{list-style:none;margin:0;padding:0}
+.liste li{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--bord);font-size:14px}
+.liste li:last-child{border-bottom:none}
+.liste .qte{margin-left:auto;color:var(--doux);font-size:13px;white-space:nowrap}
+.liste .sup{color:var(--non);font-size:18px;padding:0 4px}
+.perime{color:var(--non);font-weight:600}
+.bientot{color:var(--accent2)}
+.vide{color:var(--doux);font-size:14px;text-align:center;padding:18px 0}
+.sugg{position:absolute;z-index:6;background:var(--carte);border:1px solid var(--bord);
+  border-radius:12px;max-height:220px;overflow-y:auto;box-shadow:var(--ombre);width:calc(100% - 28px)}
+.sugg button{display:block;width:100%;text-align:left;padding:9px 12px;font-size:14px}
+.sugg button:hover,.sugg button.vise{background:var(--fond2)}
+.jauge{height:6px;background:var(--bord);border-radius:99px;overflow:hidden;margin-top:6px}
+.jauge div{height:100%;background:var(--accent)}
+.curseur{display:grid;grid-template-columns:96px 1fr 42px;gap:8px;align-items:center;margin:8px 0;font-size:13px}
+.curseur .v{text-align:right;color:var(--doux);font-variant-numeric:tabular-nums}
+
+/* ---------- fiche recette ---------- */
+#fiche{position:fixed;inset:0;z-index:50;background:var(--fond);display:none;flex-direction:column}
+#fiche[data-ouvert]{display:flex}
+#fiche .haut{position:relative;height:38vh;min-height:190px;background:var(--fond2);flex-shrink:0}
+#fiche .haut img{width:100%;height:100%;object-fit:cover}
+#fiche .fermer{position:absolute;top:12px;left:12px;width:40px;height:40px;border-radius:50%;
+  background:rgba(0,0,0,.55);color:#fff;display:grid;place-items:center;font-size:20px;backdrop-filter:blur(6px)}
+#fiche .corps{flex:1;overflow-y:auto;padding:16px 16px 40px}
+#fiche h2{margin:0 0 10px;font-size:22px;line-height:1.25}
+.etapes{counter-reset:e;list-style:none;padding:0;margin:0}
+.etapes li{counter-increment:e;position:relative;padding:0 0 12px 34px;font-size:15px}
+.etapes li::before{content:counter(e);position:absolute;left:0;top:1px;width:24px;height:24px;
+  border-radius:50%;background:var(--accent);color:#231208;font-size:12px;font-weight:700;display:grid;place-items:center}
+.detail-prix{display:flex;justify-content:space-between;padding:6px 0;font-size:14px;border-bottom:1px solid var(--bord)}
+.detail-prix .manque{color:var(--accent2)}
+.note{font-size:12px;color:var(--doux);margin-top:8px;line-height:1.45}
+</style>
+</head>
+<body>
+
+<div id="splash">
+  <h1>Marmite<span>Match</span></h1>
+  <div id="splashbar"><div></div></div>
+  <div id="status">démarrage…</div>
+</div>
+
+<header>
+  <div class="logo">Marmite<span>Match</span></div>
+  <div class="onglets" role="tablist">
+    <button role="tab" id="t-swipe"   aria-selected="true"  onclick="ongletVers('swipe')">Swipe</button>
+    <button role="tab" id="t-placard" aria-selected="false" onclick="ongletVers('placard')">Placard</button>
+    <button role="tab" id="t-reglages"aria-selected="false" onclick="ongletVers('reglages')">Réglages</button>
+  </div>
+</header>
+
+<main>
+  <!-- ============ SWIPE ============ -->
+  <section class="vue" id="v-swipe" data-actif>
+    <div id="pile"></div>
+    <div class="actions">
+      <button class="j" onclick="trancher(-1)" title="Non merci">✕</button>
+      <button class="i gros" onclick="ouvrirFiche()" title="Voir la recette">🔎</button>
+      <button class="a" onclick="trancher(1)" title="Ça me tente">♥</button>
+    </div>
+  </section>
+
+  <!-- ============ PLACARD ============ -->
+  <section class="vue" id="v-placard">
+    <div class="bloc">
+      <h3>Ajouter au placard</h3>
+      <div style="position:relative">
+        <input id="rech-ing" placeholder="farine, poulet, courgette…" autocomplete="off"
+               oninput="chercherIngredient(this.value)" onkeydown="clavierSugg(event)">
+        <div class="sugg" id="sugg" hidden></div>
+      </div>
+      <div class="rangee" style="margin-top:10px">
+        <input id="qte-ing" type="number" min="0" step="any" placeholder="quantité" style="flex:0 0 110px">
+        <select id="unite-ing" style="flex:0 0 96px">
+          <option value="g">g</option><option value="kg">kg</option>
+          <option value="ml">ml</option><option value="l">L</option>
+          <option value="piece">pièce(s)</option>
+        </select>
+        <button class="bouton" onclick="ajouterAuPlacard()">Ajouter</button>
+      </div>
+      <label class="champ" for="date-ing">À consommer avant (facultatif)</label>
+      <input id="date-ing" type="date">
+    </div>
+
+    <div class="bloc">
+      <h3>Mon placard <span class="cpt" id="cpt-placard"></span></h3>
+      <ul class="liste" id="liste-placard"></ul>
+    </div>
+
+    <div class="bloc">
+      <h3>À cuisiner vite</h3>
+      <div class="note">Les recettes qui utilisent ce qui va bientôt se perdre remontent
+        automatiquement dans le swipe.</div>
+      <ul class="liste" id="liste-urgents"></ul>
+    </div>
+  </section>
+
+  <!-- ============ REGLAGES ============ -->
+  <section class="vue" id="v-reglages">
+    <div class="bloc">
+      <h3>Ce soir</h3>
+      <div class="curseur">
+        <span>Temps max</span>
+        <input type="range" id="f-temps" min="10" max="240" step="5" value="240" oninput="majFiltres()">
+        <span class="v" id="v-temps">—</span>
+      </div>
+      <div class="curseur">
+        <span>Budget/pers.</span>
+        <input type="range" id="f-cout" min="50" max="1200" step="25" value="1200" oninput="majFiltres()">
+        <span class="v" id="v-cout">—</span>
+      </div>
+      <div class="curseur">
+        <span>Manque max</span>
+        <input type="range" id="f-manque" min="0" max="12" step="1" value="12" oninput="majFiltres()">
+        <span class="v" id="v-manque">—</span>
+      </div>
+      <label class="champ"><input type="checkbox" id="f-placard" style="width:auto;margin-right:8px"
+        onchange="majFiltres()">Uniquement ce que je peux cuisiner maintenant</label>
+      <label class="champ"><input type="checkbox" id="f-etapes" style="width:auto;margin-right:8px"
+        onchange="majFiltres()">Seulement les recettes avec instructions</label>
+      <div class="note" id="n-filtres"></div>
+    </div>
+
+    <div class="bloc">
+      <h3>Ce qui compte pour moi</h3>
+      <div class="note">Le moteur combine plusieurs ressemblances. Déplace les curseurs :
+        les suggestions changent immédiatement, sans recalcul.</div>
+      <div id="poids"></div>
+      <button class="bouton fant" style="margin-top:8px" onclick="poidsParDefaut()">Réinitialiser</button>
+    </div>
+
+    <div class="bloc">
+      <h3>Régime & allergies</h3>
+      <div id="allergies"></div>
+    </div>
+
+    <div class="bloc">
+      <h3>Prix</h3>
+      <div class="note">Les prix sont des ordres de grandeur pour un supermarché belge.
+        Corrige-les : tes valeurs sont gardées en local et rendent l'estimation juste pour toi.</div>
+      <div style="position:relative;margin-top:10px">
+        <input id="rech-prix" placeholder="chercher un ingrédient à corriger…" autocomplete="off"
+               oninput="chercherPrix(this.value)">
+        <div class="sugg" id="sugg-prix" hidden></div>
+      </div>
+      <ul class="liste" id="liste-prix"></ul>
+    </div>
+
+    <div class="bloc">
+      <h3>Données</h3>
+      <div class="note" id="etat-donnees"></div>
+      <div class="rangee" style="margin-top:10px">
+        <button class="bouton fant" onclick="exporterProfil()">Exporter mon profil</button>
+        <button class="bouton fant" onclick="document.getElementById('imp').click()">Importer</button>
+        <input type="file" id="imp" accept=".json" hidden onchange="importerProfil(this.files[0])">
+      </div>
+      <div class="rangee" style="margin-top:8px">
+        <button class="bouton fant" onclick="oublierGouts()">Oublier mes goûts</button>
+      </div>
+    </div>
+  </section>
+</main>
+
+<!-- ============ FICHE RECETTE ============ -->
+<div id="fiche">
+  <div class="haut">
+    <img id="fiche-img" alt="">
+    <button class="fermer" onclick="fermerFiche()" aria-label="Fermer">✕</button>
+  </div>
+  <div class="corps">
+    <h2 id="fiche-titre"></h2>
+    <div class="pastilles" id="fiche-pastilles" style="margin-bottom:14px"></div>
+    <h3 style="margin:18px 0 8px;font-size:15px">Ingrédients <span id="fiche-parts" style="color:var(--doux);font-weight:400;font-size:13px"></span></h3>
+    <div id="fiche-ing"></div>
+    <div class="note" id="fiche-note-prix"></div>
+    <h3 style="margin:20px 0 10px;font-size:15px">Préparation</h3>
+    <ol class="etapes" id="fiche-etapes"></ol>
+    <div class="rangee" style="margin-top:22px">
+      <button class="bouton" onclick="jaiCuisine()">J'ai cuisiné ça</button>
+      <button class="bouton fant" onclick="ajouterCoursesManquants()">Ajouter le manquant</button>
+    </div>
+    <div class="note">« J'ai cuisiné ça » décompte les ingrédients de ton placard.</div>
+  </div>
+</div>
+
+<script>
+/* =======================================================================
+   MarmiteMatch — recommandation de repas par swipe, prix et garde-manger.
+   Tout tourne côté client : aucune donnée ne quitte le téléphone.
+   ======================================================================= */
+const $ = id => document.getElementById(id);
+
+/* ---------------- chargement (cache-first : utilisable hors-ligne) ---------------- */
+const DATA_CACHE = 'mm-data-v1';
+const DATA_FILES = ['recipes.json','ingredients.json','graph_meta.json','graph.bin'];
+const enVol = new Map();   // ne jamais télécharger deux fois le même fichier en parallèle
+
+async function fetchCache(u){
+  let c = null;
+  try{ c = await caches.open(DATA_CACHE); }catch(e){}
+  if(c){ const m = await c.match(u); if(m) return m; }
+  let p = enVol.get(u);
+  if(!p){
+    p = (async()=>{
+      const r = await fetch(u);
+      if(!r.ok) throw new Error(u+' → '+r.status);
+      if(c){ try{ await c.put(u, r.clone()); }catch(e){} }
+      return r;
+    })();
+    enVol.set(u,p);
+    p.then(()=>enVol.delete(u), ()=>enVol.delete(u));
+  }
+  return (await p).clone();
+}
+const fetchJson = async u => (await fetchCache(u)).json();
+const fetchBin  = async u => (await fetchCache(u)).arrayBuffer();
+
+/* purge des anciennes versions de données */
+try{ caches.keys().then(ks => ks.filter(k => k.startsWith('mm-data-') && k !== DATA_CACHE)
+     .forEach(k => caches.delete(k))); }catch(e){}
+
+/* ---------------- état persistant ---------------- */
+const CLE = 'marmitematch.v1';
+let S = {
+  aimees: [], rejetees: [], vues: [],
+  placard: {},        // cid -> {g: grammes, exp: 'AAAA-MM-JJ'|null}
+  prix: {},           // cid -> EUR/kg corrigé par l'utilisateur
+  poids: null,        // pondération des composantes
+  allergies: [],
+  filtres: {temps:240, cout:1200, manque:12, placardSeul:false, etapesSeules:false},
+};
+function charger(){
+  try{ const b = JSON.parse(localStorage.getItem(CLE)); if(b) S = {...S, ...b}; }catch(e){}
+}
+let sauvTimer = null;
+function sauver(){
+  clearTimeout(sauvTimer);
+  sauvTimer = setTimeout(()=>{
+    try{ localStorage.setItem(CLE, JSON.stringify(S)); }
+    catch(e){ console.warn('sauvegarde impossible', e); }
+  }, 250);
+}
+charger();
+
+/* ---------------- données ---------------- */
+let CAT=null, REC=[], N=0, ING=[], IDX_ING=new Map(), META=null;
+let GIDX=null, GCOMP=null, K=0, NC=0;
+let PRET=false;
+
+const bar = document.querySelector('#splashbar div');
+function etape(txt, pct){ $('status').textContent = txt; if(pct!=null) bar.style.width = pct+'%'; }
+
+async function chargerTout(){
+  try{
+    etape('catalogue…', 6);
+    CAT = await fetchJson('recipes.json');
+    REC = CAT.recipes; N = REC.length;
+
+    etape('ingrédients…', 34);
+    const ig = await fetchJson('ingredients.json');
+    ING = ig.ing;
+    ING.forEach((x,i)=> IDX_ING.set(x.id, i));
+
+    etape('moteur…', 52);
+    META = await fetchJson('graph_meta.json');
+    NC = META.components.length; K = META.k;
+    if(!S.poids) S.poids = {...META.default_weights};
+
+    etape('graphe de similarité…', 62);
+    const buf = await fetchBin('graph.bin');
+    const nb = META.n * K;
+    GIDX  = new Int32Array(buf, 0, nb);
+    GCOMP = new Uint8Array(buf, nb*4, nb*NC);
+
+    PRET = true;
+    etape(N.toLocaleString('fr')+' recettes · prêt', 100);
+    setTimeout(()=>{ $('splash').style.display='none'; }, 350);
+
+    construireReglages();
+    majFiltres();
+    rendrePlacard();
+    remplirPile();
+    etatDonnees();
+  }catch(e){
+    etape('❌ '+e.message);
+    console.error(e);
+  }
+}
+
+async function etatDonnees(){
+  try{
+    const c = await caches.open(DATA_CACHE);
+    const ok = (await Promise.all(DATA_FILES.map(u=>c.match(u)))).filter(Boolean).length;
+    $('etat-donnees').textContent = ok >= DATA_FILES.length
+      ? '✓ Tout est en cache — l’app fonctionne entièrement hors-ligne.'
+      : `Catalogue : ${ok}/${DATA_FILES.length} fichiers en cache.`;
+  }catch(e){}
+}
+
+/* ---------------- placard ---------------- */
+function prixDe(cid){
+  if(S.prix[cid] != null) return S.prix[cid];
+  const i = IDX_ING.get(cid);
+  return i == null ? 5 : ING[i].prix;
+}
+function fiche(cid){ const i = IDX_ING.get(cid); return i == null ? null : ING[i]; }
+function nomIng(i){ return ING[i] ? ING[i].fr : '?'; }
+
+function joursAvant(iso){
+  if(!iso) return null;
+  return Math.round((new Date(iso) - new Date()) / 86400000);
+}
+
+/** Ingrédients disponibles : ceux du placard, plus le fond de placard
+ *  (sel, farine, épices…) qu'on suppose toujours présent. */
+function disponible(idxIng, besoinG){
+  const x = ING[idxIng];
+  if(!x) return false;
+  if(x.placard) return true;
+  const e = S.placard[x.id];
+  if(!e) return false;
+  return e.g >= (besoinG || 0) * 0.9;   // 10 % de tolérance
+}
+
+function manquants(r){
+  const out = [];
+  for(const [i, g] of r.ig.map(a=>[a[0], a[1]])){
+    if(!disponible(i, g)) out.push([i, g]);
+  }
+  return out;
+}
+
+function ajouterAuPlacard(){
+  const cid = $('rech-ing').dataset.cid;
+  if(!cid){ $('rech-ing').focus(); return; }
+  const q = parseFloat($('qte-ing').value);
+  if(!(q > 0)){ $('qte-ing').focus(); return; }
+  const u = $('unite-ing').value;
+  const f = fiche(cid);
+  let g = q;
+  if(u === 'kg' || u === 'l') g = q * 1000;
+  else if(u === 'piece') g = q * (f && f.gpc ? f.gpc : 100);
+  const exp = $('date-ing').value || null;
+  const cur = S.placard[cid];
+  S.placard[cid] = {g: Math.round((cur ? cur.g : 0) + g), exp: exp || (cur && cur.exp) || null};
+  sauver();
+  $('rech-ing').value = ''; delete $('rech-ing').dataset.cid;
+  $('qte-ing').value = ''; $('date-ing').value = '';
+  rendrePlacard(); remplirPile();
+}
+
+function retirerDuPlacard(cid){ delete S.placard[cid]; sauver(); rendrePlacard(); remplirPile(); }
+
+function fmtG(g){
+  if(g >= 1000) return (g/1000).toFixed(g % 1000 ? 1 : 0) + ' kg';
+  return Math.round(g) + ' g';
+}
+
+function rendrePlacard(){
+  const ul = $('liste-placard'); ul.innerHTML = '';
+  const cles = Object.keys(S.placard);
+  $('cpt-placard').textContent = cles.length
+    ? cles.length + (cles.length > 1 ? ' ingrédients' : ' ingrédient') : '';
+  if(!cles.length){
+    ul.innerHTML = '<li class="vide">Ton placard est vide. Ajoute ce que tu as sous la main : '
+                 + 'les recettes que tu peux déjà cuisiner remonteront dans le swipe.</li>';
+  }
+  const tri = cles.map(c => [c, joursAvant(S.placard[c].exp)])
+    .sort((a,b) => (a[1]==null) - (b[1]==null) || (a[1]-b[1]));
+  for(const [cid, j] of tri){
+    const f = fiche(cid); if(!f) continue;
+    const e = S.placard[cid];
+    const li = document.createElement('li');
+    let cl = '', txt = '';
+    if(j != null){
+      if(j < 0){ cl = 'perime'; txt = 'périmé'; }
+      else if(j <= 3){ cl = 'bientot'; txt = j === 0 ? 'aujourd’hui' : 'J-'+j; }
+      else txt = 'J-'+j;
+    }
+    li.innerHTML = `<span>${f.fr}</span>
+      <span class="qte ${cl}">${fmtG(e.g)}${txt ? ' · '+txt : ''}</span>
+      <button class="sup" title="Retirer">✕</button>`;
+    li.querySelector('.sup').onclick = () => retirerDuPlacard(cid);
+    ul.appendChild(li);
+  }
+  const urg = $('liste-urgents'); urg.innerHTML = '';
+  const presses = tri.filter(([,j]) => j != null && j <= 5);
+  if(!presses.length) urg.innerHTML = '<li class="vide">Rien ne presse.</li>';
+  for(const [cid, j] of presses){
+    const f = fiche(cid); if(!f) continue;
+    const li = document.createElement('li');
+    li.innerHTML = `<span>${f.fr}</span><span class="qte ${j<0?'perime':'bientot'}">${
+      j<0 ? 'périmé' : (j===0 ? 'aujourd’hui' : 'dans '+j+' j')}</span>`;
+    urg.appendChild(li);
+  }
+}
+
+/* =======================================================================
+   Moteur de recommandation.
+   Comme MovieMatch : aucun profil n'est stocké. À chaque tour on recalcule
+   une préférence à partir des recettes aimées, via les voisins pré-calculés
+   du graphe — ce qui permet de repondérer les composantes en direct.
+   ======================================================================= */
+const POIDS_GLOBAUX = {affinite:0.55, cuisinable:0.30, urgence:0.15};
+
+function scoreComposite(offset){
+  /* Combine les NC scores de composante d'une arête du graphe. */
+  let s = 0, tot = 0;
+  for(let c = 0; c < NC; c++){
+    const w = S.poids[META.components[c]] ?? 0;
+    s += w * (GCOMP[offset + c] / 255);
+    tot += w;
+  }
+  return tot > 0 ? s / tot : 0;
+}
+
+/** Recettes voisines des recettes aimées, avec leur affinité moyenne. */
+function candidatsAffinite(){
+  const acc = new Map();           // idx -> [somme, nb]
+  const sources = S.aimees.slice(-40);   // les goûts récents pèsent le plus
+  for(const l of sources){
+    if(l >= META.n) continue;
+    for(let k = 0; k < K; k++){
+      const j = GIDX[l*K + k];
+      if(j < 0 || j >= N) continue;
+      const s = scoreComposite((l*K + k) * NC);
+      const a = acc.get(j);
+      if(a){ a[0] += s; a[1]++; } else acc.set(j, [s, 1]);
+    }
+  }
+  // pénalité : ce qui ressemble aux recettes rejetées redescend
+  for(const r of S.rejetees.slice(-40)){
+    if(r >= META.n) continue;
+    for(let k = 0; k < K; k++){
+      const j = GIDX[r*K + k];
+      const a = acc.get(j);
+      if(a) a[0] -= scoreComposite((r*K + k) * NC) * 0.8;
+    }
+  }
+  const out = new Map();
+  for(const [j, [s, n]] of acc) out.set(j, s / n);
+  return out;
+}
+
+function cuisinabilite(r){
+  if(!r.ig.length) return 0;
+  const m = manquants(r).length;
+  return 1 - m / r.ig.length;
+}
+
+/** Bonus pour les recettes qui consomment ce qui va se perdre. */
+function urgence(r){
+  let b = 0;
+  for(const [i] of r.ig.map(a=>[a[0]])){
+    const x = ING[i]; if(!x || x.placard) continue;
+    const e = S.placard[x.id]; if(!e || !e.exp) continue;
+    const j = joursAvant(e.exp);
+    if(j == null) continue;
+    if(j < 0) b += 0.5; else if(j <= 2) b += 1.0; else if(j <= 5) b += 0.5;
+  }
+  return Math.min(1, b / 2);
+}
+
+function passeFiltres(r){
+  const f = S.filtres;
+  if(r.m > f.temps) return false;
+  if(r.c > f.cout) return false;
+  if(f.etapesSeules && !(r.st && r.st.length)) return false;
+  if(S.allergies.length){
+    for(const [i] of r.ig.map(a=>[a[0]])){
+      const x = ING[i]; if(!x || !x.all) continue;
+      for(const a of x.all.split(';')) if(S.allergies.includes(a)) return false;
+    }
+  }
+  const m = manquants(r).length;
+  if(f.placardSeul && m > 0) return false;
+  if(m > f.manque) return false;
+  return true;
+}
+
+const dejaVu = () => new Set([...S.aimees, ...S.rejetees, ...S.vues]);
+
+/** Renvoie les meilleures recettes à proposer maintenant. */
+function prochaines(combien){
+  const vus = dejaVu();
+  const aff = S.aimees.length ? candidatsAffinite() : new Map();
+  const notes = [];
+
+  const noter = i => {
+    if(vus.has(i)) return;
+    const r = REC[i];
+    if(!r || !passeFiltres(r)) return;
+    const a = aff.get(i) ?? 0;
+    const note = POIDS_GLOBAUX.affinite * a
+               + POIDS_GLOBAUX.cuisinable * cuisinabilite(r)
+               + POIDS_GLOBAUX.urgence * urgence(r);
+    notes.push([i, note]);
+  };
+
+  if(aff.size){
+    for(const i of aff.keys()) noter(i);
+  }
+  // exploration : sans elle, on tourne en rond dans le même coin du catalogue
+  const cible = Math.max(combien * 30, 400);
+  let essais = 0;
+  while(notes.length < cible && essais < cible * 12){
+    noter(Math.floor(Math.random() * N)); essais++;
+  }
+  notes.sort((x, y) => y[1] - x[1]);
+  // un peu de hasard dans le haut du panier, pour ne pas figer les propositions
+  const tete = notes.slice(0, Math.max(combien * 4, 20));
+  for(let i = tete.length - 1; i > 0; i--){
+    const j = Math.floor(Math.random() * (i + 1)); [tete[i], tete[j]] = [tete[j], tete[i]];
+  }
+  return tete.slice(0, combien).map(x => x[0]);
+}
+
+/* =======================================================================
+   Pile de cartes et gestes
+   ======================================================================= */
+let file = [];          // indices de recettes à proposer
+let cartes = [];        // éléments DOM, la dernière est celle du dessus
+
+function urlPhoto(r){ return r.im ? CAT.prefixe_img + r.im : ''; }
+function eurs(c){ return (c/100).toFixed(2).replace('.', ',') + ' €'; }
+function duree(m){ return m >= 60 ? Math.floor(m/60)+' h'+(m%60 ? String(m%60).padStart(2,'0') : '') : m+' min'; }
+
+function pastillesDe(r){
+  const m = manquants(r).length;
+  const cls = m === 0 ? 'ok' : (m <= 2 ? 'moyen' : '');
+  const txt = m === 0 ? 'tu as tout' : m + (m > 1 ? ' manquants' : ' manquant');
+  const conf = r.conf < 0.5 ? '~' : '';
+  return `<span class="pastille">⏱ ${duree(r.m)}</span>
+          <span class="pastille prix">${conf}${eurs(r.c)}/pers.</span>
+          <span class="pastille ${cls}">🧺 ${txt}</span>` +
+         (r.st && r.st.length ? '' : '<span class="pastille">sans instructions</span>');
+}
+
+function faireCarte(i){
+  const r = REC[i];
+  const el = document.createElement('div');
+  el.className = 'carte';
+  el.dataset.i = i;
+  el.innerHTML = `
+    <div class="verdict oui">MIAM</div>
+    <div class="verdict non">NON</div>
+    <div class="photo"><img loading="lazy" alt="" src="${urlPhoto(r)}"
+         onerror="this.style.display='none'"></div>
+    <div class="sur">
+      <h2>${echapper(r.t)}</h2>
+      <div class="pastilles">${pastillesDe(r)}</div>
+    </div>`;
+  gestes(el);
+  return el;
+}
+function echapper(s){ return String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+function remplirPile(){
+  if(!PRET) return;
+  const pile = $('pile');
+  pile.innerHTML = ''; cartes = [];
+  file = prochaines(12);
+  if(!file.length){
+    pile.innerHTML = `<div class="vide" style="max-width:300px">Aucune recette ne correspond.
+      Assouplis les filtres dans <b>Réglages</b>.</div>`;
+    return;
+  }
+  // on empile à l'envers : la première proposition doit finir au-dessus
+  for(let n = Math.min(3, file.length) - 1; n >= 0; n--){
+    const el = faireCarte(file[n]);
+    el.style.transform = `scale(${1 - n*0.03}) translateY(${n*8}px)`;
+    el.style.zIndex = 10 - n;
+    pile.appendChild(el); cartes.unshift(el);
+  }
+  cartes.reverse();     // cartes[cartes.length-1] = celle du dessus
+}
+
+function carteDuDessus(){ return cartes[cartes.length - 1] || null; }
+
+function gestes(el){
+  let x0 = 0, y0 = 0, dx = 0, dy = 0, actif = false;
+  const oui = el.querySelector('.verdict.oui'), non = el.querySelector('.verdict.non');
+  const debut = e => {
+    if(el !== carteDuDessus()) return;
+    actif = true;
+    const p = e.touches ? e.touches[0] : e;
+    x0 = p.clientX; y0 = p.clientY; el.style.transition = 'none';
+  };
+  const bouge = e => {
+    if(!actif) return;
+    const p = e.touches ? e.touches[0] : e;
+    dx = p.clientX - x0; dy = p.clientY - y0;
+    if(Math.abs(dx) > 8) e.preventDefault();
+    el.style.transform = `translate(${dx}px,${dy*0.35}px) rotate(${dx/22}deg)`;
+    oui.style.opacity = Math.max(0, Math.min(1, dx/90));
+    non.style.opacity = Math.max(0, Math.min(1, -dx/90));
+  };
+  const fin = () => {
+    if(!actif) return; actif = false;
+    el.style.transition = 'transform .3s ease, opacity .3s ease';
+    if(Math.abs(dx) > 95){ envoyer(el, dx > 0 ? 1 : -1); }
+    else{
+      el.style.transform = 'translate(0,0) rotate(0)';
+      oui.style.opacity = non.style.opacity = 0;
+    }
+    dx = dy = 0;
+  };
+  el.addEventListener('touchstart', debut, {passive:true});
+  el.addEventListener('touchmove',  bouge, {passive:false});
+  el.addEventListener('touchend',   fin);
+  el.addEventListener('mousedown',  debut);
+  window.addEventListener('mousemove', bouge);
+  window.addEventListener('mouseup',   fin);
+}
+
+function envoyer(el, sens){
+  const i = +el.dataset.i;
+  el.style.transform = `translate(${sens*window.innerWidth*1.3}px,60px) rotate(${sens*28}deg)`;
+  el.style.opacity = '0';
+  (sens > 0 ? S.aimees : S.rejetees).push(i);
+  S.vues.push(i);
+  if(S.vues.length > 4000) S.vues = S.vues.slice(-3000);
+  sauver();
+  setTimeout(() => { el.remove(); }, 300);
+  cartes.pop();
+  // on complète la pile pour garder trois cartes visibles
+  const vus = dejaVu();
+  while(file.length && vus.has(file[0])) file.shift();
+  if(file.length < 3) file = file.concat(prochaines(10).filter(j => !vus.has(j)));
+  const suivant = file[Math.min(cartes.length, file.length - 1)];
+  if(suivant != null && cartes.length < 3){
+    const nv = faireCarte(suivant);
+    nv.style.transform = 'scale(0.94) translateY(16px)'; nv.style.zIndex = '7';
+    $('pile').insertBefore(nv, $('pile').firstChild);
+    cartes.unshift(nv);
+  }
+  cartes.forEach((c, n) => {
+    const p = cartes.length - 1 - n;
+    c.style.transition = 'transform .25s ease';
+    c.style.transform = `scale(${1 - p*0.03}) translateY(${p*8}px)`;
+    c.style.zIndex = 10 - p;
+  });
+  if(!cartes.length) remplirPile();
+}
+
+function trancher(sens){
+  const el = carteDuDessus(); if(!el) return;
+  el.style.transition = 'transform .3s ease, opacity .3s ease';
+  envoyer(el, sens);
+}
+
+/* =======================================================================
+   Fiche recette
+   ======================================================================= */
+let ficheCourante = null;
+
+function ouvrirFiche(idx){
+  const el = carteDuDessus();
+  const i = idx != null ? idx : (el ? +el.dataset.i : null);
+  if(i == null) return;
+  const r = REC[i]; ficheCourante = i;
+
+  $('fiche-img').src = urlPhoto(r);
+  $('fiche-titre').textContent = r.t;
+  $('fiche-pastilles').innerHTML = pastillesDe(r);
+  $('fiche-parts').textContent = r.p ? `pour ${r.p} ${r.p > 1 ? 'personnes' : 'personne'}` : '';
+
+  let total = 0, estime = false;
+  const lignes = r.ig.map(([i2, g, est]) => {
+    const x = ING[i2]; if(!x) return '';
+    const eur = g/1000 * prixDe(x.id);
+    total += eur;
+    if(est || !x.cure) estime = true;
+    const ok = disponible(i2, g);
+    return `<div class="detail-prix">
+      <span class="${ok ? '' : 'manque'}">${ok ? '✓' : '○'} ${echapper(x.fr)}
+        <span style="color:var(--doux)">${est ? '~' : ''}${fmtG(g)}</span></span>
+      <span style="color:var(--doux)">${eur.toFixed(2).replace('.',',')} €</span>
+    </div>`;
+  }).join('');
+  $('fiche-ing').innerHTML = lignes +
+    `<div class="detail-prix" style="font-weight:700;border-bottom:none;padding-top:10px">
+       <span>Total</span><span>${estime ? '~' : ''}${total.toFixed(2).replace('.',',')} €</span></div>` +
+    (r.p ? `<div class="detail-prix" style="border-bottom:none;color:var(--accent2)">
+       <span>Par personne</span><span>${estime ? '~' : ''}${(total/r.p).toFixed(2).replace('.',',')} €</span></div>` : '');
+  $('fiche-note-prix').textContent = estime
+    ? 'Le ~ signale une estimation : quantité déduite d’une moyenne, ou prix non relevé. '
+      + 'Corrige les prix dans Réglages pour affiner.'
+    : '';
+
+  const ol = $('fiche-etapes'); ol.innerHTML = '';
+  if(r.st && r.st.length){
+    for(const e of r.st){
+      const li = document.createElement('li');
+      li.textContent = e.charAt(0).toUpperCase() + e.slice(1);
+      ol.appendChild(li);
+    }
+  }else{
+    ol.innerHTML = '<div class="note">Les instructions de cette recette ne sont pas dans le '
+      + 'jeu de données. Les ingrédients et les quantités, eux, sont complets.</div>';
+  }
+  $('fiche').setAttribute('data-ouvert','');
+}
+function fermerFiche(){ $('fiche').removeAttribute('data-ouvert'); }
+
+/** Décompte les ingrédients utilisés du placard. */
+function jaiCuisine(){
+  if(ficheCourante == null) return;
+  const r = REC[ficheCourante];
+  let touches = 0;
+  for(const [i, g] of r.ig.map(a=>[a[0], a[1]])){
+    const x = ING[i]; if(!x || x.placard) continue;
+    const e = S.placard[x.id]; if(!e) continue;
+    e.g = Math.max(0, e.g - g);
+    touches++;
+    if(e.g < 1) delete S.placard[x.id];
+  }
+  if(!S.aimees.includes(ficheCourante)) S.aimees.push(ficheCourante);
+  sauver(); rendrePlacard(); fermerFiche(); remplirPile();
+  toast(touches ? `${touches} ingrédient(s) décomptés du placard.` : 'Rien à décompter.');
+}
+
+function ajouterCoursesManquants(){
+  if(ficheCourante == null) return;
+  const m = manquants(REC[ficheCourante]);
+  if(!m.length){ toast('Tu as déjà tout.'); return; }
+  const txt = m.map(([i, g]) => `- ${ING[i].fr} : ${fmtG(g)}`).join('\n');
+  navigator.clipboard?.writeText(txt).then(
+    () => toast('Liste de courses copiée.'),
+    () => toast(txt));
+}
+
+let toastTimer = null;
+function toast(msg){
+  let t = $('toast');
+  if(!t){
+    t = document.createElement('div'); t.id = 'toast';
+    t.style.cssText = 'position:fixed;left:50%;bottom:92px;transform:translateX(-50%);z-index:80;'
+      + 'background:var(--carte);border:1px solid var(--bord);padding:10px 16px;border-radius:12px;'
+      + 'box-shadow:var(--ombre);font-size:14px;max-width:86vw;text-align:center';
+    document.body.appendChild(t);
+  }
+  t.textContent = msg; t.style.opacity = '1';
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { t.style.opacity = '0'; }, 2600);
+}
+
+/* =======================================================================
+   Réglages
+   ======================================================================= */
+const ETIQ_COMP = {ingredient:'Ingrédients', tag:'Style de plat', categorie:'Type de plat',
+                   temps:'Temps', cout:'Budget', nutri:'Nutrition', embed:'Description'};
+const ETIQ_ALL = {gluten:'Gluten', lactose:'Lactose', oeuf:'Œuf',
+                  fruits_a_coque:'Fruits à coque', arachide:'Arachide', soja:'Soja',
+                  poisson:'Poisson', crustaces:'Crustacés'};
+
+function construireReglages(){
+  const p = $('poids'); p.innerHTML = '';
+  for(const c of META.components){
+    const d = document.createElement('div'); d.className = 'curseur';
+    d.innerHTML = `<span>${ETIQ_COMP[c] || c}</span>
+      <input type="range" min="0" max="100" value="${Math.round((S.poids[c] ?? 0)*100)}"
+             oninput="majPoids('${c}', this.value)">
+      <span class="v" id="pv-${c}">${Math.round((S.poids[c] ?? 0)*100)}</span>`;
+    p.appendChild(d);
+  }
+  const a = $('allergies'); a.innerHTML = '';
+  for(const [k, lib] of Object.entries(ETIQ_ALL)){
+    const l = document.createElement('label'); l.className = 'champ';
+    l.innerHTML = `<input type="checkbox" style="width:auto;margin-right:8px"
+      ${S.allergies.includes(k) ? 'checked' : ''} onchange="majAllergie('${k}', this.checked)">Sans ${lib.toLowerCase()}`;
+    a.appendChild(l);
+  }
+  const f = S.filtres;
+  $('f-temps').value = f.temps; $('f-cout').value = f.cout; $('f-manque').value = f.manque;
+  $('f-placard').checked = f.placardSeul; $('f-etapes').checked = f.etapesSeules;
+  rendrePrix();
+}
+function majPoids(c, v){ S.poids[c] = (+v)/100; $('pv-'+c).textContent = v; sauver(); remplirPile(); }
+function poidsParDefaut(){ S.poids = {...META.default_weights}; sauver(); construireReglages(); remplirPile(); }
+function majAllergie(k, on){
+  S.allergies = on ? [...new Set([...S.allergies, k])] : S.allergies.filter(x => x !== k);
+  sauver(); remplirPile();
+}
+function majFiltres(){
+  const f = S.filtres;
+  f.temps = +$('f-temps').value; f.cout = +$('f-cout').value; f.manque = +$('f-manque').value;
+  f.placardSeul = $('f-placard').checked; f.etapesSeules = $('f-etapes').checked;
+  $('v-temps').textContent  = f.temps >= 240 ? '∞' : duree(f.temps);
+  $('v-cout').textContent   = f.cout >= 1200 ? '∞' : eurs(f.cout);
+  $('v-manque').textContent = f.manque >= 12 ? '∞' : f.manque;
+  if(PRET){
+    const n = REC.reduce((s, r) => s + (passeFiltres(r) ? 1 : 0), 0);
+    $('n-filtres').textContent = `${n.toLocaleString('fr')} recettes correspondent.`;
+  }
+  sauver(); remplirPile();
+}
+
+/* ---------------- recherche d'ingrédient ---------------- */
+function normal(s){ return s.normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase(); }
+
+function chercherGeneric(q, cible, surChoix){
+  const box = $(cible);
+  q = normal(q.trim());
+  if(q.length < 2){ box.hidden = true; return; }
+  const res = [];
+  for(const x of ING){
+    const n = normal(x.fr), e = normal(x.en);
+    if(n.startsWith(q) || e.startsWith(q)) res.push([x, 0]);
+    else if(n.includes(q) || e.includes(q)) res.push([x, 1]);
+    if(res.length > 60) break;
+  }
+  res.sort((a, b) => a[1] - b[1]);
+  box.innerHTML = '';
+  for(const [x] of res.slice(0, 12)){
+    const b = document.createElement('button');
+    b.textContent = x.fr + (x.fr !== x.en ? ` · ${x.en}` : '');
+    b.onclick = () => surChoix(x);
+    box.appendChild(b);
+  }
+  box.hidden = !res.length;
+}
+function chercherIngredient(q){
+  chercherGeneric(q, 'sugg', x => {
+    $('rech-ing').value = x.fr; $('rech-ing').dataset.cid = x.id;
+    $('sugg').hidden = true; $('qte-ing').focus();
+  });
+}
+function clavierSugg(e){
+  if(e.key === 'Escape') $('sugg').hidden = true;
+  if(e.key === 'Enter'){ const b = $('sugg').querySelector('button'); if(b) b.click(); }
+}
+function chercherPrix(q){
+  chercherGeneric(q, 'sugg-prix', x => {
+    $('rech-prix').value = ''; $('sugg-prix').hidden = true;
+    if(S.prix[x.id] == null) S.prix[x.id] = x.prix;
+    sauver(); rendrePrix();
+  });
+}
+function rendrePrix(){
+  const ul = $('liste-prix'); ul.innerHTML = '';
+  const cles = Object.keys(S.prix);
+  if(!cles.length){
+    ul.innerHTML = '<li class="vide">Aucun prix corrigé. Cherche un ingrédient ci-dessus.</li>';
+    return;
+  }
+  for(const cid of cles){
+    const x = fiche(cid); if(!x) continue;
+    const li = document.createElement('li');
+    li.innerHTML = `<span style="flex:1">${echapper(x.fr)}</span>
+      <input type="number" step="0.1" min="0" value="${S.prix[cid]}" style="width:82px;text-align:right">
+      <span class="qte">€/kg</span><button class="sup">✕</button>`;
+    li.querySelector('input').onchange = ev => {
+      const v = parseFloat(ev.target.value);
+      if(v >= 0){ S.prix[cid] = v; sauver(); remplirPile(); }
+    };
+    li.querySelector('.sup').onclick = () => { delete S.prix[cid]; sauver(); rendrePrix(); remplirPile(); };
+    ul.appendChild(li);
+  }
+}
+
+/* ---------------- profil ---------------- */
+function exporterProfil(){
+  const b = new Blob([JSON.stringify(S)], {type:'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(b);
+  a.download = 'marmitematch-profil.json';
+  a.click(); URL.revokeObjectURL(a.href);
+}
+function importerProfil(f){
+  if(!f) return;
+  const fr = new FileReader();
+  fr.onload = () => {
+    try{
+      S = {...S, ...JSON.parse(fr.result)};
+      sauver(); construireReglages(); rendrePlacard(); majFiltres(); remplirPile();
+      toast('Profil importé.');
+    }catch(e){ toast('Fichier illisible.'); }
+  };
+  fr.readAsText(f);
+}
+function oublierGouts(){
+  if(!confirm('Effacer tes goûts (aimées, rejetées, déjà vues) ? Le placard et les prix sont conservés.')) return;
+  S.aimees = []; S.rejetees = []; S.vues = [];
+  sauver(); remplirPile(); toast('Goûts effacés.');
+}
+
+/* ---------------- navigation ---------------- */
+function ongletVers(nom){
+  for(const v of ['swipe','placard','reglages']){
+    $('v-'+v).toggleAttribute('data-actif', v === nom);
+    $('t-'+v).setAttribute('aria-selected', String(v === nom));
+  }
+}
+window.addEventListener('keydown', e => {
+  if($('fiche').hasAttribute('data-ouvert')){ if(e.key === 'Escape') fermerFiche(); return; }
+  if(!$('v-swipe').hasAttribute('data-actif')) return;
+  if(e.key === 'ArrowLeft')  trancher(-1);
+  if(e.key === 'ArrowRight') trancher(1);
+  if(e.key === 'ArrowUp' || e.key === ' ') { e.preventDefault(); ouvrirFiche(); }
+});
+
+if('serviceWorker' in navigator){
+  window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(()=>{}));
+}
+chargerTout();
+</script>
+</body>
+</html>

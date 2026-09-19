@@ -1,0 +1,22 @@
+{
+  "n": 87925,
+  "k": 24,
+  "components": [
+    "ingredient",
+    "tag",
+    "categorie",
+    "temps",
+    "cout",
+    "nutri"
+  ],
+  "default_weights": {
+    "ingredient": 0.42,
+    "tag": 0.2,
+    "categorie": 0.12,
+    "temps": 0.1,
+    "cout": 0.1,
+    "nutri": 0.06
+  },
+  "idx_dtype": "int32",
+  "comp_dtype": "uint8"
+}
