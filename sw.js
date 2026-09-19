@@ -2,7 +2,7 @@
    hors-ligne. Les fichiers de données sont gérés séparément par la page
    (cache `mm-data-v1`), parce qu'ils sont gros et versionnés à part.
    Incrémenter V invalide la coquille chez tous les clients. */
-const V = 'mm-shell-v2';
+const V = 'mm-shell-v4';
 const COQUILLE = ['./', 'index.html', 'manifest.webmanifest',
                   'icons/icon-192.png', 'icons/icon-512.png'];
 

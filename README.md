@@ -8,6 +8,17 @@ le téléphone.
 Même architecture que MovieMatch (`swipe-reco`) : tout est statique, tout est
 mis en cache au premier chargement, puis l'app fonctionne hors-ligne.
 
+## Dire ce dont on a envie
+
+Le panneau **Réglages** règle la soirée, pas des préférences permanentes :
+
+| Réglage | Effet |
+|---|---|
+| **J'ai envie de…** | nomme un ingrédient ; les recettes qui l'utilisent passent devant. Ce n'est **pas** un filtre : une envie non satisfaite ne fait pas disparaître la recette, elle la fait reculer. |
+| **Type de cuisine** | 16 cuisines. Déduites des tags Food.com quand ils existent, sinon du titre et des ingrédients — le corpus n'a aucun tag « Italian », les recettes italiennes étaient noyées dans « European ». |
+| **Niveau** | facile / moyen / technique, **calculé** à partir du nombre d'ingrédients, du nombre d'étapes et du temps. Le tag « Easy » ne couvre que 54 % du corpus ; le calcul, lui, qualifie tout. |
+| **Temps, budget, manque max** | filtres durs. |
+
 ## Ce qui la distingue d'une app de recettes
 
 - **Le prix par personne est sur la carte**, pas caché dans un sous-menu.
@@ -51,7 +62,8 @@ menu ⋮ → **Ajouter à l'écran d'accueil**.
 
 | Fichier | Taille | Contenu |
 |---|---|---|
-| `recipes.json` | ~43 Mo | catalogue : titre, temps, parts, coût, ingrédients, étapes |
+| `recipes.json` | ~33 Mo | catalogue : titre, temps, parts, coût, ingrédients, cuisine, niveau |
+| `steps.json` | ~53 Mo | instructions, chargées en arrière-plan (sinon un seul fichier dépasserait la limite de 100 Mo de GitHub) |
 | `ingredients.json` | 0,4 Mo | ontologie : nom, catégorie, prix/kg, conservation, allergènes |
 | `graph.bin` | ~20 Mo | 24 plus proches voisins + score par composante (uint8) |
 | `graph_meta.json` | — | en-tête : K, N, composantes, pondération par défaut |
@@ -62,10 +74,13 @@ des clients, et `V` dans `sw.js` pour la coquille.
 
 ## Limites connues
 
-- **31,5 % des recettes ont leurs instructions.** Le corpus principal a un champ
-  `steps` corrompu ; les étapes viennent d'un second jeu de données qui ne
-  couvre qu'une partie du catalogue. Les ingrédients et quantités, eux, sont
-  complets partout. Voir le README de `MARMITE` pour la marche à suivre.
+- **92,9 % des recettes ont leurs instructions.** Le corpus principal a un champ
+  `steps` corrompu ; les étapes sont reconstituées depuis RecipeNLG et
+  KingName1 par appariement de titre. Les ingrédients et quantités, eux, sont
+  complets partout.
+- **47 % des recettes ont une cuisine identifiée.** Les autres sont surtout des
+  desserts et des plats sans marqueur culturel. Une cuisine cochée ne les
+  montrera pas.
 - **Les ingrédients sont en français** (2 897 sur 2 897) : recherche, placard,
   liste de courses et détail des prix. **Les titres de recettes restent en
   anglais** — testés, `opus-mt-en-fr` et NLLB-600M donnent des contresens
